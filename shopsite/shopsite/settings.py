@@ -13,7 +13,7 @@ https://docs.djangoproject.com/en/4.2/ref/settings/
 from pathlib import Path
 import os,json
 
-env = json.load(open('./shopsite/env.json'))
+env = json.load(open('./env.json'))
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
 
@@ -81,9 +81,9 @@ WSGI_APPLICATION = 'shopsite.wsgi.application'
 DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.mysql',
-        'NAME': 'cdp_organization',
-        'USER': 'root',
-        'PASSWORD': '123456',
+        'NAME': env['database_name'],
+        'USER': env['user'],
+        'PASSWORD': env['password'],
         'HOST': 'mysql',
         'PORT': '3306',
     }
