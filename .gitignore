@@ -3,4 +3,4 @@
 *.env
 *.DS_Store
 data/
-/shopsite/shopsite/env.json
+/shopsite/env.json
