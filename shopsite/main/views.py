@@ -1,9 +1,10 @@
 from django.shortcuts import render,HttpResponse
 from django.http import JsonResponse
 from django.views.decorators.csrf import csrf_exempt
+from django.forms.models import model_to_dict
 from rest_framework import viewsets
 from rest_framework.decorators import action
-from .models import Users
+from .models import Users,SystemConfig
 from .serializer import *
 from main.email import EMAIL
 from .forms import UsersForm,ProductForm
@@ -119,6 +120,16 @@ def patch_email(request):
         result["errcode"] = 400
         result["errmsg"] = "非POST請求"
 
-    return JsonResponse(result)        
+    return JsonResponse(result)
+
+def enable(request, key1):
+    product_form = ProductForm()
+    user_form = UsersForm()
+    account = model_to_dict(SystemConfig.objects.get(key1=key1)).get('account')
+    Users.objects.filter(account=account).update(confirmed=1)
+    
+    return render(request,'enable.html')
+    
+
 
 

@@ -12,4 +12,5 @@ urlpatterns = [
     path('index/',views.index),
     path('users/',include(users.urls)),
     re_path(r"^patch_email/$",views.patch_email,name="patch_email"),
+    path('enable/<str:key1>', views.enable, name='enable'),
 ]+ static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
