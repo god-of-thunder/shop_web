@@ -4,7 +4,7 @@ from django.views.decorators.csrf import csrf_exempt
 from django.forms.models import model_to_dict
 from rest_framework import viewsets
 from rest_framework.decorators import action
-from .models import Users,SystemConfig
+from .models import Users,SystemConfig,Product
 from .serializer import *
 from main.email import EMAIL
 from .forms import UsersForm,ProductForm
@@ -15,7 +15,7 @@ def main(request):
     return render(request,'main.html')
 
 def index(request):
-    return render(request,'index.html')
+    return render(request,'index.html',locals())
 
 
 class UsersViewSet(viewsets.ModelViewSet):
@@ -122,13 +122,66 @@ def patch_email(request):
 
     return JsonResponse(result)
 
-def enable(request, key1):
-    product_form = ProductForm()
-    user_form = UsersForm()
+def enable(request, key1:str):
+    productForm = ProductForm()
+    usersForm = UsersForm()
     account = model_to_dict(SystemConfig.objects.get(key1=key1)).get('account')
     Users.objects.filter(account=account).update(confirmed=1)
+
+    return render(request,'enable.html',locals())
+
+def items(request,id:int):
+    usersForm = UsersForm()
+    product = Product.objects.get(id=id)
+    productForm = ProductForm()
+    product_count = model_to_dict(Product.objects.get(id=id)).get('stock') - model_to_dict(
+        Product.objects.get(id=id)).get('sold')
     
-    return render(request,'enable.html')
+    return render(request,'item.html',locals())
+
+
+def search(request,keyword):
+    usersForm = UsersForm()
+    keyword = str(keyword)
+    productForm = ProductForm()
+    product = Product.objects.filter(title__contains=keyword)
+    productcount = Product.objects.filter(title__contains=keyword).count()
+
+    return render(request,'search.html',locals())
+
+def cart(request):
+    usersForm = UsersForm()
+    productForm = ProductForm()
+    if Users.objects.filter(account=request.session['account']).exists():
+        user = Users.objects.get(account=request.session['account'])
+    else:
+        user = None
+    if user == None:
+        return HttpResponse("請登入使用購物車")
+    else:
+        car_product_list = request.session.get("ber_car_list")
+        if car_product_list:
+            car_count = len(car_product_list)
+        else:
+            car_count = 0
+
+    product_list = []
+    buy_product_money = 0  # 紀錄購買商品的總價格
+    buy_product_count = 0  # 紀錄總共買了幾個商品
+    if car_product_list:
+        for product in car_product_list:
+            temp_product = Product.objects.get(id=product[0])
+            product_list.append([temp_product, product[1], int(model_to_dict(temp_product)["money"]) * int(product[1])])
+            buy_product_money += int(model_to_dict(temp_product)["money"]) * int(product[1])
+            buy_product_count += int(product[1])
+
+    return render(request,"cart.html",locals())
+
+def limited_item(request):  # 限時購物的商品頁面
+    usersForm = UsersForm()
+    productForm = ProductForm()
+    return render(request, 'limited_item.html', locals())
+
     
 
 

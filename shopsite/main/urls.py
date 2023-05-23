@@ -13,4 +13,8 @@ urlpatterns = [
     path('users/',include(users.urls)),
     re_path(r"^patch_email/$",views.patch_email,name="patch_email"),
     path('enable/<str:key1>', views.enable, name='enable'),
+    path("items/<str:id>",views.items),
+    path("search/<str:keyword>",views.search),
+    path("cart/",views.cart),
+    path("limited_item/",views.limited_item),
 ]+ static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
