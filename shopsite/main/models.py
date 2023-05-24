@@ -47,4 +47,18 @@ class SystemConfig(models.Model):
 
     class Meta:
         managed = True
-        db_table = 'system_config'               
+        db_table = 'system_config'
+
+class Limitedtime(models.Model):
+    seller = models.CharField(max_length=200)
+    limitquantity = models.IntegerField()
+    price = models.IntegerField()
+    product_id = models.IntegerField()
+    srcset = models.ImageField()
+    starttime = models.DateTimeField()
+    endtime = models.DateTimeField()
+    id = models.IntegerField(primary_key=True)
+
+    class Meta:
+        managed = True
+        db_table = 'limitedtime'                       
