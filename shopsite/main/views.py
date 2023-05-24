@@ -1,13 +1,17 @@
-from django.shortcuts import render,HttpResponse
-from django.http import JsonResponse
+from django.shortcuts import render, HttpResponse
+from django.http import JsonResponse, HttpResponseRedirect
 from django.views.decorators.csrf import csrf_exempt
 from django.forms.models import model_to_dict
+from django.utils import timezone
+from django.db import transaction
 from rest_framework import viewsets
 from rest_framework.decorators import action
-from .models import Users,SystemConfig,Product
+from .models import Users, SystemConfig, Product, Limitedtime, Business
 from .serializer import *
 from main.email import EMAIL
-from .forms import UsersForm,ProductForm
+from .forms import UsersForm, ProductForm
+import datetime, random
+from shopsite import settings
 
 # Create your views here.
 
@@ -184,5 +188,280 @@ def limited_item(request):  # 限時購物的商品頁面
 
     
 
+def limited_time_sale(request):  # 限時購物的頁面
+    usersForm = UsersForm()
+    productForm = ProductForm()
+    if 'account' in request.session:
+        user = Users.objects.get(account=request.session['account'])
+    else:
+        user = None
+    if user == None:
+        return HttpResponseRedirect("請登入進行購買")
+    else:
+        ISOTIMEFORMAT = '%Y-%m-%d %H:%M:%S'
 
+        product_list = Limitedtime.objects.filter(starttime__lte=timezone.now(), endtime__gte=timezone.now())
+        # lte小於等於 gte大於等於
+
+    return render(request, 'limited_time_sale.html', locals())
+
+
+def sellercenter(request):  # 賣家中心的資料
+    usersForm = UsersForm()
+    productForm = ProductForm()
+    account = request.session.get('account')
+    product_count = Product.objects.filter(sell=account).count()
+    product_list = Product.objects.filter(sell=account)
+
+    return render(request, 'sellercenter.html', locals())
+
+
+class ProductViewSet(viewsets.ModelViewSet):
+    queryset = Product.objects.all()
+    serializer_class = ProductSerializer
+
+    def date_format(self,date): # 將限時特賣的日期 格式化
+        new_date = date[0:4] + "-" + date[4:6] + "-" + date[6:8] + " " + date[8:10] + ":" + date[10:12]
+        return new_date
+    
+    def make_id(self): # 產生限時特賣的ID
+        while (True):
+
+            id = random.randrange(10000000, 99999999)
+
+            if (Limitedtime.objects.filter(id=id).exists()):
+                pass
+            else:
+                break
+
+        return str(id)
+    
+    def make_ordernumber(self): # 製造出訂單的編號
+        while (True):
+
+            order_number = random.randrange(10000000, 99999999)
+            if (Business.objects.filter(order_number=order_number).exists()):
+                pass
+            else:
+                break
+
+        return str(order_number)
+
+
+
+    @action(detail=False,methods=['post'])
+    def ajax_time(self, request):  # 限時特賣的AJAX
+
+        result = {"status": False, "errcode": None, "errmsg": None}
+
+        if request.method == "POST":
+            account = request.session.get('account')
+            data = request.data
+            product_list = data.get("product_list")  # 要特賣的所有商品 [0]限制數量 [1]特價 [2]商品ID [3]開始 [4]結束日期
+            product_list = eval(product_list)
+            if product_list:
+                for product in product_list:
+                    product[3] = self.date_format(product[3])
+                    product[4] = self.date_format(product[4])
+                    Limitedtime_modles = Limitedtime(seller=account,
+                                                     limitquantity=product[0],
+                                                     product_id=product[2],
+                                                     price=product[1],
+                                                     starttime=product[3],
+                                                     endtime=product[4],
+                                                     id=self.make_id(),
+                                                     srcset=str(model_to_dict(Product.objects.get(id=product[2])).get(
+                                                         "srcset")))
+                    Limitedtime_modles.save()
+                result["status"] = True
+
+            else:
+                result["errcode"] = 404
+                result["errmsg"] = "沒有這個商品"
+        else:
+            result["errcode"] = 400
+            result["errmsg"] = "不是GET請求"
+
+        return JsonResponse(result)
+
+    @action(detail=False,methods=['post'])
+    def checkout(self, request):  # 結帳的Ajax
+        result = {"status": False, "errcode": None, "errmsg": ""}
+        if 'account' in request.session:
+            user = Users.objects.get(account=request.session['account'])
+        else:
+            user = None
+        if user == None:
+            return HttpResponseRedirect("請登入進行購買")
+        else:
+            if request.method == "POST":
+                data = request.data
+                product_list = data.get("product_list")  # 要結帳的所有商品 ID跟數量
+                product_list = eval(product_list)
+                atomicity = True
+                error_list = []
+                ISOTIMEFORMAT = '%Y-%m-%d %H:%M:%S'
+                try:
+                    with transaction.atomic():
+                        for product_count, product in enumerate(product_list):
+                            product_data = Product.objects.select_for_update().get(id=product[0])
+                            product_dict = model_to_dict(product_data)
+                            if (int(product_dict["stock"]) - int(product_dict["sold"]) - int(
+                                    product[1])) >= 0:  # 檢查商品數量是否足夠
+                                newsold = int(product_dict["sold"]) + int(product[1])
+                                business = Business(buyer=request.session.get("account"),
+                                                    seller=product_dict.get("sell"),
+                                                    amount=product[1],
+                                                    total_price=str(int(product_dict.get("money")) * int(product[1])),
+                                                    transaction_time=datetime.datetime.now().strftime(ISOTIMEFORMAT),
+                                                    product_id=product[0],
+                                                    order_number=self.make_ordernumber())
+                                Product.objects.filter(id=product[0]).update(sold=newsold)
+                                business.save()
+                            else:
+                                error_list.append(product_data.title + "數量不足")
+                except:
+                    atomicity = False
+                    error_list.append(str(product_data.id) + " error,")
+                if atomicity:
+                    result["status"] = True
+                    request.session["ber_car_list"] = None
+                else:
+                    result["errcode"] = 404
+                    for error in error_list:
+                        result["errmsg"] += error
+
+            else:
+                result["errcode"] = 400
+                result["errmsg"] = "非GET請求"
+
+        return JsonResponse(result)
+
+    @action(detail=False,methods=['post'])
+    def directly_buy(self, request):  # 直接購買
+        result = {"status": False, "errcode": None, "errmsg": None}
+
+        if 'account' in request.session:
+            user = Users.objects.get(account=request.session['account'])
+        else:
+            user = None
+        if user == None:
+            return HttpResponseRedirect("請登入進行購買")
+        else:
+            if request.method == "POST":
+                product = request.POST.get("product_list")
+                product = eval(product)
+                result["errmsg"] = product
+                ISOTIMEFORMAT = '%Y-%m-%d %H:%M:%S'
+                product_data = model_to_dict(Product.objects.get(id=product[0]))
+                business = Business(buyer="account",
+                                    seller="sell",
+                                    amount=product[1],
+                                    total_price=str(int(product_data.get("money")) * int(product[1])),
+                                    transaction_time=datetime.datetime.now().strftime(ISOTIMEFORMAT),
+                                    product_id=product[0],
+                                    order_number=self.make_ordernumber())
+                business.save()
+                result["status"] = True
+            else:
+                result["errcode"] = 400
+                result["status"] = "非POST請求"
+
+        return JsonResponse(result)
+
+    @action(detail=False,methods=['post'])
+    def del_buy_car(self, request):  # 刪除購物車
+        result = {"status": False, "errcode": None, "errmsg": None}
+
+        if request.method == "POST":
+            data = request.data
+            product_id = data.get("product_id")
+            if product_id:
+                ber_car_list = request.session.get("ber_car_list")
+                for n, product in enumerate(ber_car_list):
+                    if product[0] == product_id:
+                        del ber_car_list[n]
+                        result["status"] = True
+                request.session["ber_car_list"] = ber_car_list
+            else:
+                result["errcode"] = 404
+                result["errmsg"] = "刪除失敗"
+        else:
+            result["errcode"] = 400
+            result["errmsg"] = "非POST請求"
+
+        return JsonResponse(result)
+
+    @action(detail=False,methods=['post'])
+    def ber_car(self, request):  # 新增購物車
+
+        result = {"status": False, "errcode": None, "errmsg": None}
+
+        if request.method == "POST":
+            data = request.data
+            product_id = data.get("product_id")
+            product_count = data.get("product_count")
+            try:
+                product = Product.objects.get(id=product_id)
+            except:
+                product = None
+            if product == None:
+                result['errcode'] = 404
+                result['errmsg'] = "沒有這個商品"
+            else:
+                ber_car_list = request.session.get("ber_car_list")
+                repeat = False
+                if ber_car_list:
+                    for n, product_list in enumerate(ber_car_list):
+                        if product_list[0] == product_id:
+                            product_list[1] = int(product_list[1]) + int(product_count)
+                            repeat = True
+                            ber_car_list[n] = [product_list[0], int(product_list[1])]
+                    if repeat == False:
+                        ber_car_list.append([product_id, product_count])
+                    request.session["ber_car_list"] = ber_car_list
+                else:
+                    request.session["ber_car_list"] = [[product_id, product_count]]
+                result['status'] = 1
+        else:
+            result['errcode'] = 400
+            result['errmsg'] = "非POST請求"
+
+        return JsonResponse(result)
+
+    def joinstring(self, string, symbol):
+        string = "".join(string.split(symbol))
+        return string
+
+    def undate(self):
+        date = str(datetime.datetime.now())
+        new_date = self.joinstring(self.joinstring(self.joinstring(date, " "), "-"), ":").split(".")[0]
+        return new_date
+
+    @action(detail=False,methods=['post'])
+    def addProduct(self, request):
+        result = {"status": False, "errcode": None, "errmsg": None}
+        newtime = self.undate()
+        file_path = "static/images/" + request.session.get("account") + newtime + ".png"
+
+        f1 = request.FILES.get('srcset')
+        fname = '%s/%s' % (settings.MEDIA_ROOT, file_path)
+        with open(fname, 'wb') as pic:
+            for c in f1.chunks():
+                pic.write(c)
+        try:
+            product = Product(title=request.POST.get("title"),
+                              sold=0,
+                              money=request.POST.get("money"),
+                              sell=request.session.get("account"),
+                              id=int(Product.objects.all().count()) + 1,
+                              stock=request.POST.get("stock"),
+                              srcset="/" + file_path
+                              )
+            product.save()
+            result["status"] = True
+            result["errmsg"] = str(int(Product.objects.all().count()) + 1)
+        except Exception as e:
+            result["errmsg"] = str(int(Product.objects.all().count()) + 1)
+        return JsonResponse(result)
 
