@@ -1,10 +1,9 @@
 from main.base_url import *
 from main.models import SystemConfig,Users
+from django.conf import settings
 from django.core.mail import send_mail
 from django.forms.models import model_to_dict
 import json,hashlib,datetime
-
-env = json.load(open('./env.json'))
 
 class EMAIL:
     def __init__(self):
@@ -26,7 +25,7 @@ class EMAIL:
         email_url = base_url + 'enable/'+ account_code
         send_mail(self.title,
                   '''{}您好！\n\n　　歡迎您加入 Vincent Shop！請點擊以下連結以啟用帳號享受全部的功能！\n\n　　{}\n\n祝 順心\n\n Vincent Shop 營運團隊敬上'''.format(account_name,email_url),
-                  env['email_host_user'],
+                  settings.EMAIL_HOST_USER,
                   [account_email],
                   fail_silently = False
                   )
@@ -39,7 +38,7 @@ class EMAIL:
         email_url=base_url + "enable/"+account_code
         send_mail(self.title,
                   '''{}您好！\n\n　　歡迎您加入 Vincent Shop！請點擊以下連結以啟用帳號享受全部的功能！\n\n　　{}\n\n祝 順心\n\n Vincent Shop 營運團隊敬上'''.format(account_name,email_url),
-                  env['email_host_user'],
+                  settings.EMAIL_HOST_USER,
                   [email],
                   fail_silently = False
                   )
