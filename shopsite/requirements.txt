@@ -2,3 +2,5 @@ Django
 djangorestframework
 mysqlclient
 Pillow
+uwsgi
+django-recaptcha
