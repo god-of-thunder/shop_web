@@ -7,7 +7,7 @@ class UsersSerializer(serializers.HyperlinkedModelSerializer):
     
     class Meta:
         model = Users
-        fileds = ['name','password','email','phone','time','confirmed','account']
+        fields = ['name','password','email','phone','time','confirmed','account']
 
 class LimitedtimeSerializer(serializers.HyperlinkedModelSerializer):
     class Meta:
