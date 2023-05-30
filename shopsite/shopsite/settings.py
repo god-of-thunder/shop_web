@@ -29,6 +29,8 @@ DEBUG = env['debug']
 
 ALLOWED_HOSTS = env['allow_host']
 
+SILENCED_SYSTEM_CHECKS = ['captcha.recaptcha_test_key_error']
+
 
 # Application definition
 
@@ -40,6 +42,7 @@ INSTALLED_APPS = [
     'django.contrib.messages',
     'django.contrib.staticfiles',
     'main',
+    'captcha',
     'rest_framework'
 ]
 
