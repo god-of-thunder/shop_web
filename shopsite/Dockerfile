@@ -12,8 +12,10 @@ RUN chmod +x /usr/local/bin/wait-for
 WORKDIR /app
 
 # Copy the requirements file to the container
-COPY requirements.txt .
+COPY requirements.txt /app
 
+# Copy the docker-entrypoint.sh file to the container
+COPY docker-entrypoint.sh /app
 
 # Install Python dependencies
 RUN pip install --no-cache-dir -r requirements.txt
@@ -22,4 +24,4 @@ RUN pip install --no-cache-dir -r requirements.txt
 COPY . .
 
 # Run the Django development server
-CMD ["wait-for", "mysql:3306","--","python", "manage.py", "runserver", "0.0.0.0:8000"]
+CMD ["wait-for", "mysql:3306","--","sh", "/app/docker-entrypoint.sh"]
