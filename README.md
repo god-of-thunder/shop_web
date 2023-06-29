@@ -1,2 +1,2 @@
 # shop_web
-developed by Django
+Django developed with docker
