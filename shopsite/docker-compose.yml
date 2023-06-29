@@ -1,0 +1,38 @@
+version: '3.9'
+
+services:
+  django:
+    build:
+      context: ./
+      dockerfile: Dockerfile
+    stdin_open: true
+    tty: true  
+    ports:
+      - 8000:8000
+    volumes:
+      - .:/app
+    depends_on:
+      - mysql
+    environment:
+      - MYSQL_HOST=mysql
+      - MYSQL_PORT=3306
+      - MYSQL_USER=root
+      - MYSQL_PASSWORD=123456
+      - MYSQL_DB=cdp_organization
+    restart: always      
+    
+  mysql:
+    image: mysql:8.0.31
+    restart: always
+    ports:
+      - "3306:3306"
+    environment:
+      MYSQL_ROOT_PASSWORD: 123456
+      MYSQL_DATABASE: cdp_organization
+      TZ: "Asia/Taipei"
+    volumes:
+      - ./mysql_data:/var/lib/mysql
+      - ./custom.cnf:/etc/mysql/conf.d/custom.cnf    
+
+volumes:
+  mysql_data:     

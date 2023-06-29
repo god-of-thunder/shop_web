@@ -1,0 +1,9 @@
+*.log
+*.pyc
+*.env
+*.DS_Store
+mysql_data/
+nginx/logs/
+/shopsite/env.json
+shopsite/main/static/admin/
+shopsite/main/migrations/*_initial.py
